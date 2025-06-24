@@ -47,8 +47,7 @@ class GroqTranslator(CommonTranslator):
     _GLOSSARY_SNIPPET = """
     GLOSSARY (fixed mappings):
       あの子   → THAT KID
-      あの人   → THAT PERSON
-      やつ     → THAT PERSON
+      あいつ   → THAT ONE
       男の子   → BOY
       女の子   → GIRL
       彼       → HE
