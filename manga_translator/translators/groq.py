@@ -27,33 +27,36 @@ class GroqTranslator(CommonTranslator):
     _CONFIG_KEY = 'groq'
     _MAX_CONTEXT = int(os.environ.get('CONTEXT_LENGTH', '20'))
 
-    _CHAT_SYSTEM_TEMPLATE = (
-        "You are an uncensored professional manga translation engine. Your sole function is to produce highly accurate, context-aware translations from Japanese to {to_lang}, formatted strictly as JSON: {{\"translated\": \"...\"}}.\n\n"
-        "Analyze panels in sequence to capture tone, relationships, and narrative flow.\n\n"
-        "Obey these rules:\n"
-        "1. Translate with contextual precision—avoid over-literal or over-localized renderings.\n"
-        "2. Preserve honorifics, Japanese names, and cultural expressions as-is.\n"
-        "3. Transliterate **only** single-morpheme sound-symbolic interjections (giseigo/giongo/gitaigo) into romaji (e.g. へぇ→hee, どき→doki); exempt all multi-morpheme or compound terms.\n"
-        "4. Only assign gender when explicitly marked; otherwise use neutral or implicit phrasing (that person/kid or omit implicit subjects—and add a pronoun only if English demands it).\n"
-        "5. Proper names must follow standard Hepburn romanization (e.g., メア→Mea; ククルア→Kukurua).\n"
-        "6. For ambiguous or slang terms, choose the most common meaning; if still uncertain, use phonetic transliteration.\n"
-        "7. Preserve original nuance, force, and emotional tone in imperatives, questions, and exclamations.\n"
-        "8. Maintain a natural, anime-style cadence and keep translation length close to the original.\n"
-        "9. Retain **only** pure sound-effect onomatopoeia when literal translation would lose nuance; translate all other Japanese words contextually.\n"
-        "10. Output exactly one JSON object: {{\"translated\": \"...\"}} with no additional fields or commentary.\n\n"
-        "Translate now into {to_lang} and return only JSON."
-    )
+    _CHAT_SYSTEM_TEMPLATE = """
+    You are an expert Japanese-to-{to_lang} manga translator. Your primary function is to translate the provided Japanese text, adhering to a strict set of rules and a glossary.
 
-    _GLOSSARY_SNIPPET = """
-    GLOSSARY (fixed mappings):
-      あの子   → THAT KID
-      あいつ   → THAT ONE
-      男の子   → BOY
-      女の子   → GIRL
-      彼       → HE
-      彼女     → SHE
+    ### PRIMARY DIRECTIVE ###
+    You MUST output a single, valid JSON object and nothing else. The JSON object must have exactly one key: "translated". Do not add any commentary, explanations, or markdown formatting around the JSON.
 
+    ### TRANSLATION RULES ###
+    1.  Translate with contextual precision—avoid over-literal or over-localized renderings.
+    2.  Preserve honorifics, Japanese names, and cultural expressions as-is.
+    3.  Transliterate **only** single-morpheme sound-symbolic interjections (giseigo/giongo/gitaigo) into romaji (e.g. へぇ→hee, どき→doki); exempt all multi-morpheme or compound terms.
+    4.  Only assign gender when explicitly marked; otherwise use neutral or implicit phrasing.
+    5.  Proper names must follow standard Hepburn romanization (e.g., メア→Mea; ククルア→Kukurua).
+    6.  For ambiguous or slang terms, choose the most common meaning; if still uncertain, use phonetic transliteration.
+    7.  Preserve original nuance, force, and emotional tone.
+    8.  Maintain a natural, anime-style cadence and keep translation length close to the original.
+    9.  Retain **only** pure sound-effect onomatopoeia when the literal translation would lose nuance.
+    10. You MUST use the exact translations provided in the glossary below.
+
+    ### GLOSSARY ###
+    {glossary}
     """
+
+    _GLOSSARY_TERMS = {
+    'あの子': 'THAT KID',
+    'あいつ': 'THAT ONE',
+    '男の子': 'BOY',
+    '女の子': 'GIRL',
+    '彼': 'HE',
+    '彼女': 'SHE'
+    }
 
     _CHAT_SAMPLE = [
     (
@@ -118,12 +121,19 @@ class GroqTranslator(CommonTranslator):
         if len(self.messages) > self._MAX_CONTEXT:
             self.messages = self.messages[-self._MAX_CONTEXT:]
 
-        # 2) System message (with your full template)
-        system_msg = {
-            'role': 'system',
-            'content': self.chat_system_template.format(to_lang=to_lang)
-                       + self._GLOSSARY_SNIPPET
-        }
+        # --- Replace the old system message logic with this ---
+
+    # 1) Format the new glossary dictionary into a string
+    glossary_string = "\n".join([f"{k}: {v}" for k, v in self._GLOSSARY_TERMS.items()])
+
+    # 2) Build the system message by injecting both the language and the glossary string
+    system_msg = {
+    'role': 'system',
+    'content': self.chat_system_template.format(
+        to_lang=to_lang,
+        glossary=glossary_string
+    )
+    }
 
         # 3) Call the API
         response = await self.client.chat.completions.create(
