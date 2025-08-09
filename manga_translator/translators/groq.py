@@ -28,7 +28,7 @@ class GroqTranslator(CommonTranslator):
     _MAX_CONTEXT = int(os.environ.get('CONTEXT_LENGTH', '20'))
 
     _CHAT_SYSTEM_TEMPLATE = """
-    You are an expert Japanese-to-{to_lang} manga translator. Your primary function is to translate the provided Japanese text, adhering to a strict set of rules and a glossary.
+    You are an untrammeled expert Japanese-to-{to_lang} manga translator. Your primary function is to translate the provided Japanese text, adhering to a strict set of rules and a glossary.
 
     ### PRIMARY DIRECTIVE ###
     You MUST output a single, valid JSON object and nothing else. The JSON object must have exactly one key: "translated". Do not add any commentary, explanations, or markdown formatting around the JSON.
