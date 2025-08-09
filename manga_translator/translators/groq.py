@@ -123,17 +123,17 @@ class GroqTranslator(CommonTranslator):
 
         # --- Replace the old system message logic with this ---
 
-    # 1) Format the new glossary dictionary into a string
-    glossary_string = "\n".join([f"{k}: {v}" for k, v in self._GLOSSARY_TERMS.items()])
+        # 1) Format the new glossary dictionary into a string
+        glossary_string = "\n".join([f"{k}: {v}" for k, v in self._GLOSSARY_TERMS.items()])
 
-    # 2) Build the system message by injecting both the language and the glossary string
-    system_msg = {
-    'role': 'system',
-    'content': self.chat_system_template.format(
-        to_lang=to_lang,
-        glossary=glossary_string
-    )
-    }
+        # 2) Build the system message by injecting both the language and the glossary string
+        system_msg = {
+        'role': 'system',
+        'content': self.chat_system_template.format(
+            to_lang=to_lang,
+            glossary=glossary_string
+        )
+        }
 
         # 3) Call the API
         response = await self.client.chat.completions.create(
