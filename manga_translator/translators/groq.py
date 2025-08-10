@@ -112,67 +112,67 @@ class GroqTranslator(CommonTranslator):
         return results
 
     async def _request_translation(self, to_lang: str, prompt: str) -> dict:
-        # 1) Build the user prompt
-        prompt_with_lang = (
-            f"Translate the following text into {to_lang}. Return the result in JSON format.\n\n"
-            f"{{\"untranslated\": \"{prompt}\"}}\n"
-        )
-        self.messages.append({'role': 'user', 'content': prompt_with_lang})
-        if len(self.messages) > self._MAX_CONTEXT:
-            self.messages = self.messages[-self._MAX_CONTEXT:]
-
-        # --- Replace the old system message logic with this ---
-
-        # 1) Format the new glossary dictionary into a string
+        # This part of your code is already correct.
+        # It correctly formats the glossary and builds the system message.
         glossary_string = "\n".join([f"{k}: {v}" for k, v in self._GLOSSARY_TERMS.items()])
-
-        # 2) Build the system message by injecting both the language and the glossary string
         system_msg = {
-        'role': 'system',
-        'content': self.chat_system_template.format(
-            to_lang=to_lang,
-            glossary=glossary_string
-        )
+            'role': 'system',
+            'content': self.chat_system_template.format(
+                to_lang=to_lang,
+                glossary=glossary_string
+            )
         }
 
-        # 3) Call the API
+        # This part of your code is also correct.
+        user_content = (
+            f"Translate the following text into {to_lang}. Return the result in JSON format.\n\n"
+            f'{{"untranslated": "{prompt}"}}\n'
+        )
+        current_messages = list(self.messages)
+        current_messages.append({'role': 'user', 'content': user_content})
+        if len(current_messages) > self._MAX_CONTEXT:
+            current_messages = current_messages[-self._MAX_CONTEXT:]
+
+        # The API call is correct.
         response = await self.client.chat.completions.create(
             model=self.model,
-            messages=[system_msg] + self.messages,
+            messages=[system_msg] + current_messages,
             max_tokens=self._MAX_TOKENS // 2,
             temperature=self.temperature,
             top_p=self.top_p
         )
 
-        # 4) Update token usage
-        self.token_count += response.usage.total_tokens
-        self.token_count_last = response.usage.total_tokens
+        usage = response.usage
+        if usage:
+            self.token_count += usage.total_tokens
+            self.token_count_last = usage.total_tokens
 
-        # 5) Grab raw output
-        raw = response.choices[0].message.content
-
-        # 6) Strip out any <think>…</think> blocks
-        cleaned = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL)
-
-        # 7) Extract the first JSON object
-        match = re.search(r'\{.*?\}', cleaned, flags=re.DOTALL)
-        json_str = match.group(0) if match else cleaned
-
-        # 8) Parse JSON safely
+        # --- THIS IS THE CORRECTED PARSING LOGIC ---
+        # It replaces your old, unsafe steps #5 through #8.
+        raw_content = response.choices[0].message.content
         try:
-            data = json.loads(json_str)
+            # Ideal path: The AI returns perfect JSON.
+            data = json.loads(raw_content)
         except json.JSONDecodeError:
-            # Fallback: remove any leading 'translated":'
-            fallback = re.sub(r'^\s*"?translated"?\s*:\s*', '', json_str)
-            fallback = fallback.strip(' \'"{}')
-            data = {"translated": fallback}
+            # Failure path: The response is not perfect JSON.
+            # We clean it aggressively to rescue the translation and fix errors like "translated:".
+            
+            # This regex strips the "translated": part from the beginning.
+            cleaned_text = re.sub(r'^\s*"?translated"?\s*:\s*"?', '', raw_content).strip()
+            
+            # This removes a potential closing quote at the very end.
+            if cleaned_text.endswith('"'):
+                cleaned_text = cleaned_text[:-1]
+            
+            # The final, clean data.
+            data = {"translated": cleaned_text}
 
-        # 9) Context retention
+        # The context retention is also correct.
         if self._CONTEXT_RETENTION:
-            self.messages.append({'role': 'assistant', 'content': json_str})
-        else:
-            # remove any placeholder assistant message
-            if self.messages and self.messages[-1]['role'] == 'assistant':
-                self.messages.pop()
-
+            assistant_response = json.dumps(data)
+            self.messages.append({'role': 'user', 'content': user_content})
+            self.messages.append({'role': 'assistant', 'content': assistant_response})
+            if len(self.messages) > self._MAX_CONTEXT:
+                self.messages = self.messages[-self._MAX_CONTEXT:]
+        
         return data
