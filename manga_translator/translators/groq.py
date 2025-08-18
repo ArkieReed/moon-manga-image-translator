@@ -55,7 +55,8 @@ class GroqTranslator(CommonTranslator):
     '男の子': 'BOY',
     '女の子': 'GIRL',
     '彼': 'HE',
-    '彼女': 'SHE'
+    '彼女': 'SHE',
+    '話': 'Chapter'
     }
 
     _CHAT_SAMPLE = [
