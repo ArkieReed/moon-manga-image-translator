@@ -105,12 +105,19 @@ class GroqTranslator(CommonTranslator):
         return self._config_get('top_p', default=0.92)
 
     async def _translate(self, from_lang: str, to_lang: str, queries: List[str]) -> List[str]:
-        results = []
-        for prompt in queries:
-            response = await self._request_translation(to_lang, prompt)
-            results.append(response.get("translated", ""))
-        self.logger.info(f'Used {self.token_count_last} tokens (Total: {self.token_count})')
-        return results
+        results = []
+        for prompt in queries:
+            response = await self._request_translation(to_lang, prompt)
+            translated_text = response.get("translated", "")
+            
+            # --- ADD THIS LINE ---
+            # Replace the fancy apostrophe with a simple one that all fonts have.
+            final_text = translated_text.replace("’", "'")
+
+            results.append(final_text)
+
+        self.logger.info(f'Used {self.token_count_last} tokens (Total: {self.token_count})')
+        return results
 
     async def _request_translation(self, to_lang: str, prompt: str) -> dict:
         # This part of your code is already correct.
